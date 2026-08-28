@@ -1,68 +1,62 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import api from '../api/axiosConfig';
+import '../theme.css';
 
 function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const portal = searchParams.get('portal');
+  const isOfficer = portal === 'officer';
 
   const handleSubmit = async (e) => {
-    e.preventDefault(); // stops the page from refreshing on form submit
+    e.preventDefault();
     setError('');
-
     try {
       const response = await api.post('/login', { email, password });
       const { token, user } = response.data;
-
-      // Save token and user info so we stay logged in
       localStorage.setItem('token', token);
       localStorage.setItem('user', JSON.stringify(user));
-
-      // Redirect based on role
-      if (user.role === 'officer' || user.role === 'admin') {
-        navigate('/officer-dashboard');
-      } else {
-        navigate('/citizen-dashboard');
-      }
+      navigate(user.role === 'officer' || user.role === 'admin' ? '/officer-dashboard' : '/citizen-dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '80px auto', padding: '20px' }}>
-      <h2>Login</h2>
-      <form onSubmit={handleSubmit}>
-        <div style={{ marginBottom: '15px' }}>
-          <label>Email</label><br />
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
-        <div style={{ marginBottom: '15px' }}>
-          <label>Password</label><br />
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            style={{ width: '100%', padding: '8px' }}
-          />
-        </div>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" style={{ width: '100%', padding: '10px' }}>
-          Login
-        </button>
-      </form>
-      <p style={{ marginTop: '15px' }}>
-        Don't have an account? <Link to="/register">Register here</Link>
-      </p>
+    <div className={`auth-page theme-${isOfficer ? 'officer' : 'citizen'}`}>
+      <div className="auth-card">
+        <span className={`eyebrow ${isOfficer ? 'officer' : 'citizen'}`}>
+          {isOfficer ? 'Department Access' : portal === 'citizen' ? 'Public Access' : 'Login'}
+        </span>
+        <h2 className="auth-title">
+          {isOfficer ? 'Official Portal Login' : portal === 'citizen' ? 'Citizen Portal Login' : 'Login'}
+        </h2>
+        <form onSubmit={handleSubmit}>
+          <div className="form-group">
+            <label className="form-label">Email</label>
+            <input type="email" className="form-input" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          </div>
+          <div className="form-group">
+            <label className="form-label">Password</label>
+            <input type="password" className="form-input" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          </div>
+          {error && <p className="error-text">{error}</p>}
+          <button type="submit" className={`btn btn-block ${isOfficer ? 'btn-officer' : 'btn-citizen'}`}>
+            Login
+          </button>
+        </form>
+        <p className="helper-text">
+          Don't have an account?{' '}
+          <Link to="/register" className={isOfficer ? 'link-officer' : 'link-citizen'}>Register here</Link>
+        </p>
+        <p className="helper-text">
+          <Link to="/" className={isOfficer ? 'link-officer' : 'link-citizen'}>← Back to home</Link>
+        </p>
+      </div>
     </div>
   );
 }
