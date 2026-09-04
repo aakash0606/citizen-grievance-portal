@@ -26,6 +26,10 @@ function CitizenDashboard() {
   const [grievances, setGrievances] = useState([]);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
+  const [timelineData, setTimelineData] = useState(null);
+  const [ratingTarget, setRatingTarget] = useState(null);
+  const [ratingValue, setRatingValue] = useState(0);
+  const [feedbackText, setFeedbackText] = useState('');
   const navigate = useNavigate();
   const user = JSON.parse(localStorage.getItem('user'));
 
@@ -47,19 +51,16 @@ function CitizenDashboard() {
     e.preventDefault();
     setError('');
     setMessage('');
-
     if (!departmentId) {
       setError('Please select a department');
       return;
     }
-
     try {
       const formData = new FormData();
       formData.append('title', title);
       formData.append('description', description);
       formData.append('department_id', departmentId);
       if (image) formData.append('image', image);
-
       await api.post('/grievances', formData);
       setMessage('Grievance filed successfully!');
       setTitle('');
@@ -88,6 +89,35 @@ function CitizenDashboard() {
       fetchGrievances();
     } catch (err) {
       alert(err.response?.data?.error || 'Failed to reopen.');
+    }
+  };
+
+  const viewTimeline = async (id) => {
+    try {
+      const res = await api.get(`/grievances/${id}`);
+      setTimelineData(res.data);
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to load timeline.');
+    }
+  };
+
+  const openRating = (id) => {
+    setRatingTarget(id);
+    setRatingValue(0);
+    setFeedbackText('');
+  };
+
+  const submitRating = async () => {
+    if (ratingValue === 0) {
+      alert('Please select a star rating.');
+      return;
+    }
+    try {
+      await api.patch(`/grievances/${ratingTarget}/rate`, { rating: ratingValue, feedback: feedbackText });
+      setRatingTarget(null);
+      fetchGrievances();
+    } catch (err) {
+      alert(err.response?.data?.error || 'Failed to submit rating.');
     }
   };
 
@@ -122,9 +152,7 @@ function CitizenDashboard() {
             <label className="form-label">Department</label>
             <select className="form-select" value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} required>
               <option value="">-- Select department --</option>
-              {departments.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
+              {departments.map((d) => (<option key={d.id} value={d.id}>{d.name}</option>))}
             </select>
           </div>
           <div className="form-group">
@@ -148,6 +176,7 @@ function CitizenDashboard() {
               <th>Title</th>
               <th>Department</th>
               <th>Status</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -155,15 +184,14 @@ function CitizenDashboard() {
               <tr key={g.id}>
                 <td>
                   {g.image_url ? (
-                    <img
-                      src={`${SERVER_URL}${g.image_url}`}
-                      alt="Complaint"
-                      className="thumb"
-                      onClick={() => window.open(`${SERVER_URL}${g.image_url}`, '_blank')}
-                    />
+                    <img src={`${SERVER_URL}${g.image_url}`} alt="Complaint" className="thumb"
+                      onClick={() => window.open(`${SERVER_URL}${g.image_url}`, '_blank')} />
                   ) : '—'}
                 </td>
-                <td>{g.title}</td>
+                <td>
+                  {g.title}
+                  {g.priority === 'High' && <span className="priority-high">High Priority</span>}
+                </td>
                 <td>{g.department_name}</td>
                 <td>
                   <span className={`status-badge ${statusClass(g.status)}`}>{g.status}</span>
@@ -173,11 +201,52 @@ function CitizenDashboard() {
                       <button className="btn-small btn-reopen" onClick={() => handleReopen(g.id)}>Not Fixed</button>
                     </div>
                   )}
+                  {g.status === 'Closed' && g.rating && (
+                    <div style={{ marginTop: '4px', fontSize: '12px' }}>Your rating: {'★'.repeat(g.rating)}{'☆'.repeat(5 - g.rating)}</div>
+                  )}
+                </td>
+                <td>
+                  <button className="link-btn" onClick={() => viewTimeline(g.id)}>View Timeline</button>
+                  {g.status === 'Closed' && !g.rating && (
+                    <div><button className="link-btn" onClick={() => openRating(g.id)}>Rate this</button></div>
+                  )}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
+      )}
+
+      {timelineData && (
+        <div className="modal-overlay" onClick={() => setTimelineData(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>{timelineData.grievance.title}</h3>
+            {timelineData.timeline.map((t, i) => (
+              <div className="timeline-item" key={i}>
+                <div className="timeline-status">{t.status}</div>
+                {t.remark && <div className="timeline-remark">{t.remark}</div>}
+                <div className="timeline-time">{new Date(t.changed_at).toLocaleString()}</div>
+              </div>
+            ))}
+            <button className="btn-close-modal" onClick={() => setTimelineData(null)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {ratingTarget && (
+        <div className="modal-overlay" onClick={() => setRatingTarget(null)}>
+          <div className="modal-box" onClick={(e) => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0 }}>How was the resolution?</h3>
+            <div className="star-rating">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <span key={n} className={`star ${n <= ratingValue ? 'filled' : ''}`} onClick={() => setRatingValue(n)}>★</span>
+              ))}
+            </div>
+            <textarea className="form-textarea" rows={3} placeholder="Optional feedback"
+              value={feedbackText} onChange={(e) => setFeedbackText(e.target.value)} />
+            <button className="btn-close-modal" onClick={submitRating}>Submit Rating</button>
+          </div>
+        </div>
       )}
     </div>
   );

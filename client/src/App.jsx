@@ -4,6 +4,7 @@ import Register from './pages/Register';
 import CitizenDashboard from './pages/CitizenDashboard';
 import OfficerDashboard from './pages/OfficerDashboard';
 import Landing from './pages/Landing';
+import TrackGrievance from './pages/TrackGrievance';
 
 function App() {
   return (
@@ -15,6 +16,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/citizen-dashboard" element={<CitizenDashboard />} />
         <Route path="/officer-dashboard" element={<OfficerDashboard />} />
+        <Route path="/track" element={<TrackGrievance />} />
       </Routes>
     </BrowserRouter>
   );
